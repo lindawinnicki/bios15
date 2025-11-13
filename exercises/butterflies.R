@@ -1,22 +1,26 @@
-# read the data
-
 library(ggplot2)
-
+# read the data####
 df_butterflies <- read.csv("./data/butterflies.csv")
 # names(df_butterflies)
 # head(df_butterflies)
 
-# # splitting the data based on maternal host
-m_barbarea <- df_butterflies[df_butterflies$MaternalHost == "Barbarea",]
-# m_berteroa <- df_butterflies[df_butterflies$MaternalHost == "Berteroa",]
+# renaming
+df_butterflies$LarvalHost = paste0(df_butterflies$LarvalHost, "L")
+df_butterflies$MaternalHost = paste0(df_butterflies$MaternalHost, "M")
 
-# # splitting the data based on larval host
-l_barbarea <- df_butterflies[df_butterflies$LarvalHost == "Barbarea",]
-# l_berteroa <- df_butterflies[df_butterflies$LarvalHost == "Berteroa",]
+# mean and sd values
+mn_t <- tapply(df_butterflies$DevelopmentTime, list(df_butterflies$MaternalHost, df_butterflies$LarvalHost), mean)
+sd_t <- tapply(df_butterflies$DevelopmentTime, list(df_butterflies$MaternalHost, df_butterflies$LarvalHost), sd)
+mn_t
+sd_t
 
-barbarea_ = m_barbarea + l_barbarea
-
+# model ####
 dev_model <- lm(DevelopmentTime ~ MaternalHost * LarvalHost, data = df_butterflies)
+summary(dev_model)
+
+dev_model2 <- lm(DevelopmentTime ~ LarvalHost * MaternalHost, data = df_butterflies)
+summary(dev_model2)
+
 anova(dev_model)
 # Analysis of Variance Table
 
@@ -27,15 +31,21 @@ anova(dev_model)
 # MaternalHost:LarvalHost   1   80.80   80.80   23.05 2.561e-06 ***
 # Residuals               283  992.05    3.51                      
 
+
+# plot ####
+boxplot(DevelopmentTime ~ MaternalHost * LarvalHost, data = df_butterflies,
+col = c("skyblue", "red"))
+
 ggplot(
   data = df_butterflies,
   aes(x = MaternalHost, y = DevelopmentTime, fill = LarvalHost)
 ) + 
-  geom_boxplot()
+  geom_boxplot() + 
+  points(mn_t, col = "skyblue") +
+  theme_classic()
+
+
 
 summary(dev_model)
-
-
-
 
 getwd()
