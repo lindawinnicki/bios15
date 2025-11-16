@@ -26,7 +26,7 @@ plot(
   ylab = "Brain mass (log-transformed) [g]",
   main = "Body vs Brain Mass in Female Birds"
 )
-lines(log(females$body_mass), predicted_females, col = "blue")
+lines(log(females$body_mass), predicted_females, col = "skyblue")
 
 
 model_males = lm(log(brain_mass) ~ log(body_mass), data = males)
