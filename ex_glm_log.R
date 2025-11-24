@@ -1,3 +1,4 @@
+library(MuMIn)
 # setting the scene
 x = seq(from=0, to=1, by=0.01) # p-values
 v_b = x*(1-x) # theoretical binomial variance σ2 = np(1−p)
@@ -125,6 +126,36 @@ p_hat <- invlogit(y_hat)
 
 p_invlogit <- invlogit(p)
 
+x_50 <- -x_coefs[1]/x_coefs[2]
+
 plot(x, y)
 lines(x_pred, p_hat)
-abline(h = 0.5, v = 6, lty = 2)
+abline(h = 0.5, v = x_50, lty = 2)
+
+# normal r2 does not work for logistic regression ####
+# There are however several ‘Pseudo-r2’ available, typically based on comparing the likelihood of the model to that of a null model (a similar model but with only an intercept).
+# install.packages("tidyverse")
+
+r.squaredGLMM(m)
+#                   R2m       R2c
+# theoretical 0.2195086 0.2195086
+# delta       0.1426155 0.1426155
+
+# The coefficient of discrimination is defined as D=π1−π0
+# π1 define the amt of successes and π0 the failures
+
+mean(p_hat[which(y==1)]) - mean(p_hat[which(y==0)]) 
+# predicted ^ [1] -0.003837369
+
+y_hat <- x_coefs[1,1] * x_coefs[2,1] * x
+p_hat <- invlogit(y_hat)
+
+mean(p_hat[which(y==1)]) - mean(p_hat[which(y==0)]) 
+# ^ actual [1] -0.01199074
+
+# Poisson and negative-binomial regression ####
+x <- rpois(200, 2)
+# lambda is the mean (and also the variance) of that Poisson distribution
+# For low values the distribution is highly skewed, for high values the distribution approaches a Gaussian (normal) distribution. However, the variance is still constrained to be the same as the mean, which is not the case for the normal distribution.
+hist(x, las = 1)
+
