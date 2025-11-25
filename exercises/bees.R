@@ -1,4 +1,6 @@
 library(dplyr)
+library(ggplot2)
+library(MASS)
 source("./functions/f_CV.R")
 source("./functions/f_SE.R")
 
@@ -8,45 +10,129 @@ bees <- read.csv("./data/Eulaema.csv")
 # * The temperature seasonality (Tseason) as 100 times the standard deviation of the monthly temperature
 # * The precipitation seasonality (Pseason) as the CV of monthly precipitation (given as a percent, i.e. times 100).
 # * The effort variable in the log number of hours of sampling
-head(bees)
+
+
+head(bees[168:171, ])
 str(bees)
 unique(bees$method)
+mean(bees$Eulaema_nigrita)
+median(bees$Eulaema_nigrita)
+max(bees$Eulaema_nigrita)
 
-#filtering out the outlier
-bees <- bees |> 
-  filter(Eulaema_nigrita != 1054)
-hist(bees$Eulaema_nigrita)
+# subset(bees, Eulaema_nigrita == 1054)
+
+# #filtering out the outlier
+# bees <- bees |> 
+#   filter(Eulaema_nigrita != 1054)
+# hist(bees$Eulaema_nigrita)
 
 par(mfrow = c(1,2))
 
-bees$SA <- as.factor(bees$SA)
+bees$method <- as.factor(bees$method)
+
+# ggplot(data = bees,
+#   aes(
+#     method, 
+#     Eulaema_nigrita
+#   )
+# ) + 
+#   geom_boxplot() +
+#   facet_wrap(bees$SA)
 
 ggplot(data = bees,
   aes(
-    method, 
-    Eulaema_nigrita
-  )
-) + 
-  geom_boxplot() +
-  facet_wrap(bees$SA)
-
-ggplot(data = bees,
-  aes(
-    altitude, 
+    Tseason, 
     Eulaema_nigrita,
-    color = Pseason
+    color = MAT
   )
 ) + 
-  geom_point() +
+  geom_count() 
   # geom_line(aes(y = altitude), color = "blue") + 
-  geom_bar(aes(y = Pseason), stat = "identity", fill = "gray")
+  # geom_bar(aes(y = Pseason), stat = "identity", fill = "gray")
 
-m <- glm(bees$Eulaema_nigrita ~ bees$effort + bees$MAT + bees$altitude + bees$MAP, "poisson")
+
+m <- glm(Eulaema_nigrita ~ MAT + Tseason + Pseason + offset(effort),
+    family = "poisson", data = bees)
+
 summary(m)
 
+deviance(m) / df.residual(m)
+
+1-(m$deviance/m$null.deviance)
+# [1] 186.3061, very high overdispersion, lets try negative binomial
+
+m_nb <- glm.nb(Eulaema_nigrita ~ MAT + Tseason + Pseason + offset(effort), data = bees)
+
+summary(m_nb)
+deviance(m_nb) / df.residual(m_nb)
+# [1] 1.22788, overdispersion handled well
+
+# making a dataset
+MAT_mean <- mean(bees$MAT, na.rm = TRUE)
+effort_mean <- mean(bees$effort, na.rm = TRUE)
+Tseason_seq <- seq(min(bees$Tseason), max(bees$Tseason), length = 200)
+Pseason_seq <- seq(min(bees$Pseason), max(bees$Pseason), length = 200)
+
+# lets create the set for Tseason ####
+df_bees_T <- data.frame(
+  MAT = MAT_mean,
+  effort = effort_mean,
+  Tseason = Tseason_seq,
+  Pseason = mean(bees$Pseason) # we only want 1 variying response
+)
+
+# predicted counts on response scale
+pred_T <- predict(m_nb, newdata=df_bees_T, type="response")
+# type = "response" gives the real counts, not log-counts
+
+# 95% confidendence bands
+pred_T_se <- predict(m_nb, newdata=df_bees_T, type="link", se.fit=TRUE)
+# "link" -> linear predictor (log-counts in a log-link model)
+
+upper_T <- exp(pred_T_se$fit + 1.96*pred_T_se$se.fit)
+lower_T <- exp(pred_T_se$fit - 1.96*pred_T_se$se.fit)
+
+# now dataset for Pseason ####
+df_bees_P <- data.frame(
+  MAT = MAT_mean,
+  effort = effort_mean,
+  Tseason = mean(bees$Tseason),
+  Pseason = Pseason_seq
+)
+
+# prediction values on count scale
+pred_P <- predict(m_nb, newdata = df_bees_P, type = "response")
+
+# confidence bands (based on normality, therefor link)
+# CI=η±1.96⋅SE(η) (log-scale)
+pred_P_se <- predict(m_nb, newdata = df_bees_P, type = "link", se.fit = T)
+
+# transformation to count scale
+upper_P <- exp(pred_P_se$fit + (1.96 * pred_P_se$se.fit))
+lower_P <- exp(pred_P_se$fit - (1.96 * pred_P_se$se.fit))
+# fit holds the values of predicted bee counts
+# se.fit holds the SE values of the predictions (SE(η))
+
+
+# plotting ####
+par(mfrow = c(1,2))
+plot(Tseason_seq, pred_T, type="l", col="blue",
+     xlab="Temperature Seasonality (Tseason)",
+     ylab="Predicted bee count",
+     main="Effect of Tseason on Bee Counts")
+lines(Tseason_seq, upper_T, col="blue", lty=2)
+lines(Tseason_seq, lower_T, col="blue", lty=2)
+
+plot(Pseason_seq, pred_P, type="l", col="blue",
+     xlab="Pemperature Seasonality (Pseason)",
+     ylab="Predicted bee count",
+     main="Effect of Pseason on Bee Counts")
+lines(Pseason_seq, upper_P, col="blue", lty=2)
+lines(Pseason_seq, lower_P, col="blue", lty=2)
 
 ?hist
 ?geom_point
 ?aes
-?ylim
+?predict
+?predict.glm
 max(bees$Eulaema_nigrita)
