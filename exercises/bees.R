@@ -150,12 +150,17 @@ lower_P <- exp(pred_P_se$fit - (1.96 * pred_P_se$se.fit))
 
 # plotting ####
 par(mfrow = c(1,2))
-plot(Tseason_seq, pred_T, type="l", col="blue",
-     xlab="Temperature Seasonality (Tseason)",
-     ylab="Predicted bee count",
-     main="Effect of Tseason on Bee Counts")
+plot(Tseason_seq, pred_T, 
+  type="l",
+  las = 1, 
+  col="blue",
+  ylim = c(0,400),
+  xlab="Temperature Seasonality (Tseason)",
+  ylab="Predicted bee count",   
+  main="Effect of Tseason on Bee Counts",)
 lines(Tseason_seq, upper_T, col="blue", lty=2)
 lines(Tseason_seq, lower_T, col="blue", lty=2)
+points(bees$Tseason, bees$Eulaema_nigrita, col = rgb(0,0,0,0.3))
 
 # plot(Tseason_seq, pred_T_2, type="l", col="blue",
 #      xlab="Temperature Seasonality (Tseason)",
@@ -171,13 +176,18 @@ lines(Tseason_seq, lower_T, col="blue", lty=2)
 # lines(Tseason_seq, upper_T_center, col="blue", lty=2)
 # lines(Tseason_seq, lower_T_center, col="blue", lty=2)
 
-
-plot(Pseason_seq, pred_P, type="l", col="blue",
-     xlab="Precipitation Seasonality (Pseason)",
-     ylab="Predicted bee count",
-     main="Effect of Pseason on Bee Counts")
+plot(Pseason_seq, pred_P, 
+  type="l", 
+  las = 1,
+  col="blue",
+  ylim = c(0, 400),
+  xlab="Precipitation Seasonality (Pseason)",
+  ylab="Predicted bee count",
+  main="Effect of Pseason on Bee Counts")
 lines(Pseason_seq, upper_P, col="blue", lty=2)
 lines(Pseason_seq, lower_P, col="blue", lty=2)
+points(bees$Pseason, bees$Eulaema_nigrita,
+  col = rgb(0, 0, 0, 0.3))
 
 ?hist
 ?geom_point
