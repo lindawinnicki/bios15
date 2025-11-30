@@ -63,12 +63,15 @@ deviance(m) / df.residual(m)
 # [1] 186.3061, very high overdispersion, lets try negative binomial
 
 # offsets makes the effort exactly proportional for bee counts, that is, more effort -> more bees. no errors, no variation, its perfectly linear. 
-m_nb <- glm.nb(Eulaema_nigrita ~ MAT + Tseason + Pseason + offset(effort), data = bees)
+m_nb <- glm.nb(Eulaema_nigrita ~ MAP + MAT + Tseason + Pseason + offset(effort), data = bees)
 
 summary(m_nb)
 plot(m_nb)
 deviance(m_nb) / df.residual(m_nb)
-# [1] 1.22788, overdispersion handled well
+# [1] 1.2088, overdispersion handled well
+
+plot(, bees$Eulaema_nigrita)
+plot(residuals(m_nb), bees$Eulaema_nigrita, col = "blue")
 
 # if effort was considered a predictor, and not proportional:
 # m_nb_2 <- glm.nb(Eulaema_nigrita ~ MAT + Tseason + Pseason + effort, data = bees)
@@ -82,7 +85,7 @@ Pseason_seq <- seq(min(bees$Pseason), max(bees$Pseason), length = 200)
 # lets create the set for Tseason ####
 df_bees_T <- data.frame(
   MAT = MAT_mean,
-  effort = effort_mean,
+  effort = 1,
   Tseason = Tseason_seq,
   Pseason = mean(bees$Pseason) # we only want 1 variying response
 )
