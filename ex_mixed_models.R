@@ -1,4 +1,7 @@
+rm(list = ls())
 library(glmmTMB)
+library(ggplot2)
+
 # set.seed(145)
 x1 = rnorm(200, 10, 2) # mean 10 sd 2
 
@@ -59,8 +62,11 @@ df_table <- data.frame(Mean = mean(x1))
 df_butterflies <- read.csv("./data/butterflies.csv")
 
 head(df_butterflies)
-m <- glmmTMB(DevelopmentTime ~ LarvalHost + (1 | MotherID), data = df_butterflies)
+m <- glmmTMB(DevelopmentTime ~ LarvalHost * MaternalHost + (1 | MotherID), data = df_butterflies)
 summary(m)
+
+AIC(m)
+
 
 VarAmongMotherID <- attr(VarCorr(m)$cond$MotherID, "stddev")^2
 VarWithinGroups <- attr(VarCorr(m)$cond, "sc")^2
@@ -78,11 +84,31 @@ CV_squared_among,
 CV_squared_within, 
 CV_squared_total)
 
-df_table = apply(df_table, MARGIN=2, FUN=round, digits=2)
+df_table = apply(df_table, MARGIN=2, FUN=round, digits=5)
 df_table
 # group_means <- tapply(df_butterflies$DevelopmentTime, df_butterflies$MotherID, mean)
 
 var(group_means)
+
+# comparing with and without random effects ####
+
+m_naive <- lm(y ~ x1, data = df_mixed)
+m_random <- glmmTMB(y ~ x1 + (1 | groupID), df_mixed)
+
+summary(m_naive)
+summary(m_random)
+AIC(m_naive)
+
+plot(x1, y, las=1, col = groupID)
+newx = seq(min(x1), max(x1), length.out=200)
+coef(m_random)
+
+for(i in 1:length(levels(groupID))){
+y_hat = coef(m_random)$cond$groupID[i,1] + coef(m_random)$cond$groupID[i,2]*newx
+lines(newx, y_hat, col=i)
+}
+
+coef(m_random)$cond$groupID[10,1]
 
 # f <- function(x,y) 2 * x^2 - 3 * x * y + 8 * y^2 + 2 * x - 4 * y + 4
 # x <- seq(-20, 20, length = 100)
@@ -93,3 +119,22 @@ var(group_means)
 # persp(z, phi = 30, theta = 90)
 # contour(z)
 # ?persp
+
+bees <- read.csv("./data/Eulaema.csv")
+head(bees)
+
+m <- glmmTMB(Eulaema_nigrita ~ MAP + (1 | SA), data = bees, "nbinom2")
+summary(m)
+
+newTseason <- seq(min(bees$MAP), max(bees$MAP), length = 72)
+plot(bees$MAP, bees$Eulaema_nigrita)
+for (i in 1:length(levels(bees$SA))){
+  y_hat = exp(coef(m)$cond$SA[i,1] + coef(m)$cond$SA[i,2]*newTseason)
+  lines(newTseason, y_hat)
+}
+
+coef(m)
+
+
+
+?levels
