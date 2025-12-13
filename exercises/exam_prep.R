@@ -1,7 +1,10 @@
 rm(list = ls())
 
-library(dplyr, ggplot2, glmmTMB)
+library(dplyr)
+library(glmmTMB)
+library(ggplot2)
 library(performance)
+library(DHARMa)
 
 df_eucalypt <- read.csv("./data/exam2023_data-2.csv")
 
@@ -170,7 +173,8 @@ m_new <- glmmTMB(seedlings_tot ~
   Rock_cover + 
   # Distance_to_Eucalypt_canopy.m. + 
   # Season + 
-  (1 | Property), 
+  (1 | Property) + 
+  (1 | Season),
 df_model_clean_new, "nbinom1")
 
 #  Family: nbinom1  ( log )
@@ -212,7 +216,8 @@ df_lichen_plot <- data.frame(BareGround_cover = BareGround_cover_mean,
   Litter_cover = Litter_cover_mean,
   Rock_cover = Rock_cover_mean,
   MossLichen_cover = MossLichen_cover_seq,
-  Property = mean(df_model_clean_new$Property)
+  Property = mean(df_model_clean_new$Property),
+  Season = mean(df_model_clean_new$Season)
 )
 
 # predicted counts on response scale
@@ -240,6 +245,8 @@ lines(MossLichen_cover_seq, lowest, col="skyblue", lty=2)
 check_collinearity(m)
 check_collinearity(m_new)
 AIC(m)
+AIC(m_new)
+testDispersion(m_new)
 
 deviance(m) / df.residual(m) #[1] 0.5420553
 plot(fitted(m), df_model_clean$seedlings_tot)
@@ -267,6 +274,14 @@ mean_var <- df_model_clean_new %>%
 
 plot(log(mean_var$mean_count),
      log(mean_var$var_count),
+    #  type = "l",
+     xlab = "log(mean)",
+     ylab = "log(variance)",
+     main = "Log–log mean–variance plot")
+
+plot(mean_var$mean_count,
+     mean_var$var_count,
+    #  type = "l",
      xlab = "log(mean)",
      ylab = "log(variance)",
      main = "Log–log mean–variance plot")
