@@ -1,14 +1,12 @@
 rm(list = ls())
 
-library(dplyr)
+library(tidyverse)
 library(glmmTMB)
 library(ggplot2)
 library(performance)
 library(DHARMa)
 
 df_eucalypt <- read.csv("./data/exam2023_data-2.csv")
-
-str(df_eucalypt)
 
 df_eucalypt$seedlings_tot <- df_eucalypt$euc_sdlgs0_50cm + 
   df_eucalypt$euc_sdlgs50cm.2m + 
@@ -18,20 +16,20 @@ df_eucalypt$Season <- as.factor(df_eucalypt$Season)
 df_eucalypt$Property <- as.factor(df_eucalypt$Property)
 df_eucalypt$Landscape.position <- as.factor(df_eucalypt$Landscape.position)
 
-model_cols <- c("seedlings_tot",
-  "Season",
-  "Property",
-  "ExoticAnnualGrass_cover",
-  "NativePerennialGrass_cover",
-  "Euc_canopy_cover",
-  "Distance_to_Eucalypt_canopy.m.",
-  "annual_precipitation",
-  "precipitation_warmest_quarter",
-  "precipitation_coldest_quarter",
-  "MrVBF",
-  "SRad_Jan",
-  "SRad_Jul",
-  "Landscape.position")
+# model_cols <- c("seedlings_tot",
+  # "Season",
+  # "Property",
+  # "ExoticAnnualGrass_cover",
+  # "NativePerennialGrass_cover",
+  # "Euc_canopy_cover",
+  # "Distance_to_Eucalypt_canopy.m.",
+  # "annual_precipitation",
+  # "precipitation_warmest_quarter",
+  # "precipitation_coldest_quarter",
+  # "MrVBF",
+  # "SRad_Jan",
+  # "SRad_Jul",
+  # "Landscape.position")
 # 
 
 model_cols_new <- c("seedlings_tot",
@@ -40,35 +38,42 @@ model_cols_new <- c("seedlings_tot",
   "BareGround_cover",
   "Litter_cover",
   "MossLichen_cover",
-  "Rock_cover",
-  "annual_precipitation",
-  "Distance_to_Eucalypt_canopy.m.",
-  "MrVBF",
-  "Landscape.position")
+  "Rock_cover"
+)
 #
 
-df_model <- df_eucalypt[, model_cols]
+# df_model <- df_eucalypt[, model_cols]
 df_model_new <- df_eucalypt[, model_cols_new]
 
-hist(df_eucalypt$seedlings_tot)
+# m <- glmmTMB(seedlings_tot ~ ExoticAnnualGrass_cover + NativePerennialGrass_cover + Euc_canopy_cover + Distance_to_Eucalypt_canopy.m. + annual_precipitation + precipitation_warmest_quarter + precipitation_coldest_quarter + Landscape.position + MrVBF + SRad_Jan + SRad_Jul + (1 | Season) + (1 | Property), poisson, data = df_model) # model not happy with NA values
 
-m <- glmmTMB(seedlings_tot ~ ExoticAnnualGrass_cover + NativePerennialGrass_cover + Euc_canopy_cover + Distance_to_Eucalypt_canopy.m. + annual_precipitation + precipitation_warmest_quarter + precipitation_coldest_quarter + Landscape.position + MrVBF + SRad_Jan + SRad_Jul + (1 | Season) + (1 | Property), poisson, data = df_model) # model not happy with NA values
+# na_rows <- which(!complete.cases(df_model))
+# cat("rows", na_rows, "will be removed, in total:", length(na_rows), "rows")
+# # 5 rows are fine, lets remove them
+# df_model_clean <- na.omit(df_model)
+# # seem to have removed the whole rows, good!
 
-na_rows <- which(!complete.cases(df_model))
-cat("rows", na_rows, "will be removed, in total:", length(na_rows), "rows")
-# 5 rows are fine, lets remove them
-df_model_clean <- na.omit(df_model)
-# seem to have removed the whole rows, good!
-
-
+# removing NA values ####
 na_rows <- which(!complete.cases(df_model_new))
 cat("rows", na_rows, "will be removed, in total:", length(na_rows), "rows")
 df_model_clean_new <- na.omit(df_model_new)
 
+df_long_cover = df_model_new %>%
+  pivot_longer(cols = c(BareGround_cover, Litter_cover, MossLichen_cover, Rock_cover), names_to = "Cover_Type", values_to = "Cover")
 
+ggplot(df_long_cover, aes(x = Cover_Type, y = Cover, fill = Cover_Type)) +
+  geom_boxplot(alpha = 0.7) +       
+  xlab("Cover Type") +
+  ylab("Cover") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+# scaling ####
+cont_var <- setdiff(model_cols_new, c("seedlings_tot", "Season","Property"))
+df_model_clean_new[cont_var] <- lapply(df_model_clean_new[cont_var], scale)
 # summary stats ####
-m <- glmmTMB(seedlings_tot ~ ExoticAnnualGrass_cover + NativePerennialGrass_cover + Euc_canopy_cover + Distance_to_Eucalypt_canopy.m. + annual_precipitation + precipitation_warmest_quarter + precipitation_coldest_quarter + Landscape.position + MrVBF + SRad_Jan + SRad_Jul + Season + (1 | Property), "nbinom2", data = df_model_clean)
+# m <- glmmTMB(seedlings_tot ~ ExoticAnnualGrass_cover + NativePerennialGrass_cover + Euc_canopy_cover + Distance_to_Eucalypt_canopy.m. + annual_precipitation + precipitation_warmest_quarter + precipitation_coldest_quarter + Landscape.position + MrVBF + SRad_Jan + SRad_Jul + Season + (1 | Property), "nbinom2", data = df_model_clean)
 # season was first added as random effect, but since there are only 3 seasons in the data, the model wasnt happy.. set as a fixed effect instead :/
 
 #  Family: nbinom2  ( log )
@@ -112,24 +117,22 @@ m <- glmmTMB(seedlings_tot ~ ExoticAnnualGrass_cover + NativePerennialGrass_cove
 # ---
 # Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
-plot(df_eucalypt$Landscape.position, df_eucalypt$seedlings_tot)
-
-
-
+# plot(df_eucalypt$Landscape.position, df_eucalypt$seedlings_tot)
 
 # summary stats ####
-m <- glmmTMB(seedlings_tot ~ 
-  Euc_canopy_cover + 
-  Distance_to_Eucalypt_canopy.m. + 
-  annual_precipitation + 
-  Landscape.position + 
-  MrVBF + 
-  SRad_Jan + 
-  SRad_Jul + 
-  Season + 
-  (1 | Property), 
-"nbinom2", data = df_model_clean)
-#  Family: nbinom2  ( log )
+# m <- glmmTMB(seedlings_tot ~ 
+#   Euc_canopy_cover + 
+#   Distance_to_Eucalypt_canopy.m. + 
+#   annual_precipitation + 
+#   Landscape.position + 
+#   MrVBF + 
+#   SRad_Jan + 
+#   SRad_Jul + 
+#   Season + 
+#   (1 | Property), 
+# "nbinom2", data = df_model_clean)
+
+# Family: nbinom2  ( log )
 # Formula:          seedlings_tot ~ Euc_canopy_cover + Distance_to_Eucalypt_canopy.m. +  
 #     annual_precipitation + Landscape.position + MrVBF + SRad_Jan +  
 #     SRad_Jul + Season + (1 | Property)
@@ -173,8 +176,8 @@ m_new <- glmmTMB(seedlings_tot ~
   Rock_cover + 
   # Distance_to_Eucalypt_canopy.m. + 
   # Season + 
-  (1 | Property) + 
-  (1 | Season),
+  (1 | Property),
+  # (1 | Season),
 df_model_clean_new, "nbinom1")
 
 #  Family: nbinom1  ( log )
@@ -208,38 +211,169 @@ summary(m_new)
 
 # making a data set ####
 BareGround_cover_mean <- mean(df_model_clean_new$BareGround_cover)
+BareGround_cover_seq <- seq(min(df_model_clean_new$BareGround_cover), max(df_model_clean_new$BareGround_cover), length = 350)
+
 Litter_cover_mean <- mean(df_model_clean_new$Litter_cover)
+Litter_cover_seq <- seq(min(df_model_clean_new$Litter_cover), max(df_model_clean_new$Litter_cover), length = 350)
+
 Rock_cover_mean <- mean(df_model_clean_new$Rock_cover)
-MossLichen_cover_seq <- seq(min(df_model_clean_new$MossLichen_cover), max(df_model_clean_new$MossLichen_cover), length = 346)
+Rock_cover_seq <- seq(min(df_model_clean_new$Rock_cover), max(df_model_clean_new$Rock_cover), length = 350)
+
+MossLichen_cover_mean <- mean(df_model_clean_new$MossLichen_cover)
+MossLichen_cover_seq <- seq(min(df_model_clean_new$MossLichen_cover), max(df_model_clean_new$MossLichen_cover), length = 350)
 
 df_lichen_plot <- data.frame(BareGround_cover = BareGround_cover_mean,
   Litter_cover = Litter_cover_mean,
   Rock_cover = Rock_cover_mean,
-  MossLichen_cover = MossLichen_cover_seq,
-  Property = mean(df_model_clean_new$Property),
-  Season = mean(df_model_clean_new$Season)
+  MossLichen_cover = MossLichen_cover_seq
+)
+
+df_rock_plot <-  data.frame(BareGround_cover = BareGround_cover_mean,
+  Litter_cover = Litter_cover_mean,
+  Rock_cover = Rock_cover_seq,
+  MossLichen_cover = MossLichen_cover_mean
+)
+
+df_bare_plot <-  data.frame(BareGround_cover = BareGround_cover_seq,
+  Litter_cover = Litter_cover_mean,
+  Rock_cover = Rock_cover_mean,
+  MossLichen_cover = MossLichen_cover_mean
+)
+
+df_litter_plot <-  data.frame(BareGround_cover = BareGround_cover_mean,
+  Litter_cover = Litter_cover_seq,
+  Rock_cover = Rock_cover_mean,
+  MossLichen_cover = MossLichen_cover_mean
 )
 
 # predicted counts on response scale
-pred_lichen <- predict(m_new, newdata=df_lichen_plot, type="response")
-print(pred_lichen)
+pred_lichen <- predict(m_new, 
+  newdata = df_lichen_plot, 
+  type = "response", 
+  re.form = NA # to ignore random effects
+)
 
 # 95% confidendence bands, has to be on the log scale
-pred_lichen_se <- predict(m_new, newdata = df_lichen_plot, type = "link", se.fit = TRUE)
+pred_lichen_se <- predict(m_new, 
+  newdata = df_lichen_plot, 
+  type = "link", 
+  se.fit = TRUE, 
+  re.form = NA # to ignore random effects
+)
 
 highest <- exp(pred_lichen_se$fit + (1.96 * pred_lichen_se$se.fit))
 lowest <- exp(pred_lichen_se$fit - (1.96 * pred_lichen_se$se.fit))
 
+par(mfrow = c(1, 1))
+
 plot(MossLichen_cover_seq, pred_lichen, 
-  type="l",
+  type = "l",
   las = 1, 
-  col="skyblue",
-  # ylim = c(0,400),
-  xlab="MossLichen_cover_seq",
-  ylab="Predicted Eucalyptus count",   
-  main="Effect of MossLichen_cover_seq on Eucalyptus abundance",)
-lines(MossLichen_cover_seq, highest, col="skyblue", lty=2)
-lines(MossLichen_cover_seq, lowest, col="skyblue", lty=2)
+  col = "skyblue",
+  ylim = c(min(pred_lichen), max(pred_lichen)),
+  xlab = "Moss & Lichen Cover [SD]",
+  ylab = "Predicted Eucalyptus [count]",   
+  main = "Effect of Moss & Lichen Cover on Eucalyptus abundance")
+polygon(c(df_lichen_plot$MossLichen_cover, rev(df_lichen_plot$MossLichen_cover)),
+        c(highest, rev(lowest)),
+        col = rgb(0.2,0.5,0.8,0.2), border = NA)
+lines(MossLichen_cover_seq, highest, col = "skyblue", lty = 2)
+lines(MossLichen_cover_seq, lowest, col = "skyblue", lty = 2)
+
+pred_rock <- predict(m_new, 
+  newdata = df_rock_plot, 
+  type = "response", 
+  re.form = NA # to ignore random effects
+)
+
+# 95% confidendence bands, has to be on the log scale
+pred_rock_se <- predict(m_new, 
+  newdata = df_rock_plot, 
+  type = "link", 
+  se.fit = TRUE, 
+  re.form = NA # to ignore random effects
+)
+
+rock_highest <- exp(pred_rock_se$fit + (1.96 * pred_rock_se$se.fit))
+rock_lowest <- exp(pred_rock_se$fit - (1.96 * pred_rock_se$se.fit))
+
+plot(Rock_cover_seq, pred_rock, 
+  type = "l",
+  las = 1, 
+  col = "skyblue",
+  ylim = c(min(rock_lowest), max(rock_highest)),
+  xlab = "Rock Cover [SD]",
+  ylab = "Predicted Eucalyptus [count]",   
+  main = "Effect of Rock Cover on Eucalyptus abundance")
+polygon(c(df_rock_plot$Rock_cover, rev(df_rock_plot$Rock_cover)),
+        c(rock_highest, rev(rock_lowest)),
+        col = rgb(0.2,0.5,0.8,0.2), border = NA)
+lines(Rock_cover_seq, rock_highest, col = "skyblue", lty = 2)
+lines(Rock_cover_seq, rock_lowest, col = "skyblue", lty = 2)
+
+pred_litter <- predict(m_new, 
+  newdata = df_litter_plot, 
+  type = "response", 
+  re.form = NA # to ignore random effects
+)
+
+pred_litter_se <- predict(m_new, 
+  newdata = df_litter_plot, 
+  type = "link", 
+  se.fit = TRUE, 
+  re.form = NA # to ignore random effects
+)
+
+litter_highest <- exp(pred_litter_se$fit + (1.96 * pred_litter_se$se.fit))
+litter_lowest <- exp(pred_litter_se$fit - (1.96 * pred_litter_se$se.fit))
+
+plot(Litter_cover_seq, pred_litter, 
+  type = "l",
+  las = 1, 
+  col = "skyblue",
+  ylim = c(min(litter_lowest), max(litter_highest)),
+  xlab = "Litter Cover [SD]",
+  ylab = "Predicted Eucalyptus [count]",   
+  main = "Effect of Litter Cover on Eucalyptus abundance")
+polygon(c(df_litter_plot$Litter_cover, rev(df_litter_plot$Litter_cover)),
+        c(litter_highest, rev(litter_lowest)),
+        col = rgb(0.2,0.5,0.8,0.2), border = NA)
+lines(Litter_cover_seq, litter_highest, col = "skyblue", lty = 2)
+lines(Litter_cover_seq, litter_lowest, col = "skyblue", lty = 2)
+
+pred_bare <- predict(m_new, 
+  newdata = df_bare_plot, 
+  type = "response", 
+  re.form = NA # to ignore random effects
+)
+
+pred_bare_se <- predict(m_new, 
+  newdata = df_bare_plot, 
+  type = "link", 
+  se.fit = TRUE, 
+  re.form = NA # to ignore random effects
+)
+
+bare_highest <- exp(pred_bare_se$fit + (1.96 * pred_bare_se$se.fit))
+bare_lowest <- exp(pred_bare_se$fit - (1.96 * pred_bare_se$se.fit))
+
+plot(BareGround_cover_seq, pred_bare, 
+  type = "l",
+  las = 1, 
+  col = "skyblue",
+  ylim = c(min(bare_lowest), max(bare_highest)),
+  xlab = "Bare Cover [SD]",
+  ylab = "Predicted Eucalyptus [count]",
+  main = "Effect of Bare Cover on Eucalyptus abundance")
+polygon(c(BareGround_cover_seq, rev(BareGround_cover_seq)),
+        c(bare_highest, rev(bare_lowest)),
+        col = rgb(0.2,0.5,0.8,0.2), border = NA)
+lines(BareGround_cover_seq, bare_highest, col = "skyblue", lty = 2)
+lines(BareGround_cover_seq, bare_lowest, col = "skyblue", lty = 2)
+
+
+
+
 
 ?scale
 check_collinearity(m)
@@ -248,40 +382,80 @@ AIC(m)
 AIC(m_new)
 testDispersion(m_new)
 
-deviance(m) / df.residual(m) #[1] 0.5420553
+deviance(m_new) / df.residual(m_new) #[1] 0.4928805
+
 plot(fitted(m), df_model_clean$seedlings_tot)
 abline(0, 1, col = "skyblue")
 
 plot(residuals(m, type = "response"), predict(m, type = "response"))
 abline(h = 0, col = "red")
-# this does not look like what i expected it to
-
-
+#  this does not look like what i expected it to
 
 
 summary(m)
 
+layout(matrix(1:4, nrow = 2, byrow = TRUE))
 
+par(mar = c(4, 5, 2.5, 1))
 
-library(dplyr)
+## plot 1
+plot(MossLichen_cover_seq, pred_lichen, 
+  type = "l",
+  las = 1, 
+  col = "skyblue",
+  ylim = c(min(lowest), max(highest)),
+  xlab = "Moss & Lichen Cover [SD]",
+  ylab = "Predicted Eucalyptus [count]",   
+  main = "Effect of Moss & Lichen Cover \n on Eucalyptus abundance")
+polygon(c(df_lichen_plot$MossLichen_cover, rev(df_lichen_plot$MossLichen_cover)),
+        c(highest, rev(lowest)),
+        col = rgb(0.2,0.5,0.8,0.2), border = NA)
+lines(MossLichen_cover_seq, highest, col = "skyblue", lty = 2)
+lines(MossLichen_cover_seq, lowest, col = "skyblue", lty = 2)
 
-mean_var <- df_model_clean_new %>%
-  group_by(Property) %>%              # or Season, or any grouping, or none
-  summarise(
-    mean_count = mean(seedlings_tot),
-    var_count  = var(seedlings_tot)
-  )
+## plot 2
+plot(Rock_cover_seq, pred_rock, 
+  type = "l",
+  las = 1, 
+  col = "skyblue",
+  ylim = c(min(rock_lowest), max(rock_highest)),
+  xlab = "Rock Cover [SD]",
+  ylab = "Predicted Eucalyptus [count]",   
+  main = "Effect of Rock Cover \n on Eucalyptus abundance")
+polygon(c(df_rock_plot$Rock_cover, rev(df_rock_plot$Rock_cover)),
+        c(rock_highest, rev(rock_lowest)),
+        col = rgb(0.2,0.5,0.8,0.2), border = NA)
+lines(Rock_cover_seq, rock_highest, col = "skyblue", lty = 2)
+lines(Rock_cover_seq, rock_lowest, col = "skyblue", lty = 2)
 
-plot(log(mean_var$mean_count),
-     log(mean_var$var_count),
-    #  type = "l",
-     xlab = "log(mean)",
-     ylab = "log(variance)",
-     main = "Log–log mean–variance plot")
+## plot 3
+plot(Litter_cover_seq, pred_litter, 
+  type = "l",
+  las = 1, 
+  col = "skyblue",
+  ylim = c(min(litter_lowest), max(litter_highest)),
+  xlab = "Litter Cover [SD]",
+  ylab = "Predicted Eucalyptus [count]",   
+  main = "Effect of Litter Cover \n on Eucalyptus abundance")
+polygon(c(df_litter_plot$Litter_cover, rev(df_litter_plot$Litter_cover)),
+        c(litter_highest, rev(litter_lowest)),
+        col = rgb(0.2,0.5,0.8,0.2), border = NA)
+lines(Litter_cover_seq, litter_highest, col = "skyblue", lty = 2)
+lines(Litter_cover_seq, litter_lowest, col = "skyblue", lty = 2)
 
-plot(mean_var$mean_count,
-     mean_var$var_count,
-    #  type = "l",
-     xlab = "log(mean)",
-     ylab = "log(variance)",
-     main = "Log–log mean–variance plot")
+## plot 4
+plot(BareGround_cover_seq, pred_bare, 
+  type = "l",
+  las = 1, 
+  col = "skyblue",
+  ylim = c(min(bare_lowest), max(bare_highest)),
+  xlab = "Bare Cover [SD]",
+  ylab = "Predicted Eucalyptus [count]",
+  main = "Effect of Bare Cover on \n Eucalyptus abundance")
+polygon(c(BareGround_cover_seq, rev(BareGround_cover_seq)),
+        c(bare_highest, rev(bare_lowest)),
+        col = rgb(0.2,0.5,0.8,0.2), border = NA)
+lines(BareGround_cover_seq, bare_highest, col = "skyblue", lty = 2)
+lines(BareGround_cover_seq, bare_lowest, col = "skyblue", lty = 2)
+
+layout(1)
